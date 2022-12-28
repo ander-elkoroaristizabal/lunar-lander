@@ -1,11 +1,14 @@
+import os
+import time
 from copy import deepcopy
 
 import gym
 import numpy as np
 import torch
 
+from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
-from utils import plot_rewards
+from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
 
 
 class DQN(torch.nn.Module):
@@ -28,15 +31,6 @@ class DQN(torch.nn.Module):
         self.model.to(self.device)
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
-    # Método e-greedy
-    def get_action(self, state, epsilon=0.05):
-        if np.random.random() < epsilon:
-            action = np.random.choice(self.actions)  # acción aleatoria
-        else:
-            qvals = self.get_qvals(state)  # acción a partir del cálculo del valor de Q para esa acción
-            action = torch.max(qvals, dim=-1)[1].item()
-        return action
 
     def get_qvals(self, state):
         if type(state) is tuple:
@@ -63,10 +57,11 @@ class DQNAgent:
         self.update_loss = []
         self.training_rewards = []
         self.mean_training_rewards = []
+        self.training_losses = []
         self.sync_eps = []
         self.total_reward = 0
         self.step_count = 0
-        self.state0, _ = self.env.reset()
+        self.state0 = None
         self.gamma = None  # Defined on training
 
     # Tomamos una nueva acción
@@ -76,7 +71,7 @@ class DQNAgent:
             action = self.env.action_space.sample()
         else:
             # acción a partir del valor de Q (elección de la acción con mejor Q)
-            action = self.dnnetwork.get_action(self.state0, eps)
+            action = self.get_action(self.state0, eps)
             self.step_count += 1
 
         # Realizamos la acción y obtenemos el nuevo estado y la recompensa
@@ -94,11 +89,14 @@ class DQNAgent:
     def train(self, gamma=0.99,
               max_episodes=50000,
               dnn_update_frequency=4,
-              dnn_sync_frequency=2000):
-        
+              dnn_sync_frequency=2000,
+              env_seed=666):
+        start_time = time.time()
+
         self.gamma = gamma
 
         # Rellenamos el buffer con N experiencias aleatorias ()
+        self.state0, _ = self.env.reset(seed=env_seed)
         print("Filling replay buffer...")
         while self.buffer.burn_in_capacity() < 1:
             self.take_step(self.epsilon, mode='explore')
@@ -107,7 +105,7 @@ class DQNAgent:
         training = True
         print("Training...")
         while training:
-            self.state0, _ = self.env.reset()
+            self.state0, _ = self.env.reset(seed=env_seed + episode + 1)
             self.total_reward = 0
             done_game = False
             while not done_game:
@@ -129,6 +127,7 @@ class DQNAgent:
                 if done_game:
                     episode += 1
                     self.training_rewards.append(self.total_reward)  # guardamos las recompensas obtenidas
+                    self.training_losses.append(sum(self.update_loss) / len(self.update_loss))
                     self.update_loss = []
                     mean_rewards = np.mean(  # calculamos la media de recompensa de los últimos X episodios
                         self.training_rewards[-self.nblock:])
@@ -139,16 +138,16 @@ class DQNAgent:
 
                     # Comprobamos que todavía quedan episodios
                     if episode >= max_episodes:
-                        training = False
                         print('\nEpisode limit reached.')
-                        break
+                        end_time = time.time()
+                        return round((end_time - start_time) / 60, 2)
 
                     # Termina el juego si la media de recompensas ha llegado al umbral fijado para este juego
                     if mean_rewards >= self.reward_threshold:
-                        training = False
                         print('\nEnvironment solved in {} episodes!'.format(
                             episode))
-                        break
+                        end_time = time.time()
+                        return round((end_time - start_time) / 60, 2)
 
                     # Actualizamos epsilon según la velocidad de decaimiento fijada
                     self.epsilon = max(self.epsilon * self.eps_decay, 0.01)
@@ -167,7 +166,7 @@ class DQNAgent:
         # Obtenemos los valores de Q objetivo. El parámetro detach() evita que estos valores actualicen la red objetivo
         qvals_next = torch.max(self.target_network.get_qvals(next_states),
                                dim=-1)[0].detach()
-        qvals_next[dones_t] = 0  # 0 en estados terminales
+        qvals_next.masked_fill_(dones_t, 0)  # 0 en estados terminales
 
         # Calculamos la ecuación de Bellman
         expected_qvals = self.gamma * qvals_next + rewards_vals
@@ -188,21 +187,35 @@ class DQNAgent:
         else:
             self.update_loss.append(loss.detach().numpy())
 
+    def get_action(self, state, epsilon=0.05):
+        if np.random.random() < epsilon:
+            action = np.random.choice(self.dnnetwork.actions)  # acción aleatoria
+        else:
+            qvals = self.dnnetwork.get_qvals(state)  # acción a partir del cálculo del valor de Q para esa acción
+            action = torch.max(qvals, dim=-1)[1].item()
+        return action
+
 
 if __name__ == '__main__':
     # Inicialización:
     environment = gym.make('LunarLander-v2', render_mode='rgb_array')
     DEVICE = torch.device('mps')
+    saves_path = "dqn"
+    try:
+        os.mkdir(saves_path)
+    except FileExistsError:
+        pass
 
-    # Fijamos las semillas utilizadas, por reprodicibilidad:
-    # Refencias:
+    # Fijamos las semillas utilizadas, por reproducibilidad:
+    # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
-    RANDOM_SEED = 666
+    RANDOM_SEED = 66
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
+    # Hyperparams:
     lr = 0.001  # Velocidad de aprendizaje
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
@@ -214,14 +227,45 @@ if __name__ == '__main__':
     DNN_UPD = 1  # Frecuencia de actualización de la red neuronal
     DNN_SYNC = 1000  # Frecuencia de sincronización de pesos entre la red neuronal y la red objetivo
 
+    # Agent initialization:
     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
-    dqn = DQN(environment, learning_rate=lr, device=DEVICE)
-    agent = DQNAgent(environment, dqn, er_buffer, EPSILON, EPSILON_DECAY, BATCH_SIZE)
-    agent.train(gamma=GAMMA, max_episodes=MAX_EPISODES,
-                dnn_update_frequency=DNN_UPD, dnn_sync_frequency=DNN_SYNC)
-    plot_rewards(
-        training_rewards=agent.training_rewards,
-        mean_training_rewards=agent.mean_training_rewards,
-        reward_threshold=environment.spec.reward_threshold,
-        save_file_name='dqn_rewards.png'
+    dqn = DQN(env=environment, learning_rate=lr, device=DEVICE)
+    dqn_agent = DQNAgent(
+        env=environment,
+        dnnetwork=dqn,
+        buffer=er_buffer,
+        epsilon=EPSILON,
+        eps_decay=EPSILON_DECAY,
+        batch_size=BATCH_SIZE
     )
+
+    # Agent training:
+    training_time = dqn_agent.train(
+        gamma=GAMMA,
+        max_episodes=MAX_EPISODES,
+        dnn_update_frequency=DNN_UPD,
+        dnn_sync_frequency=DNN_SYNC,
+        env_seed=RANDOM_SEED
+    )
+    print(f"Training time: {training_time} minutes.")
+    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
+    # Training evaluation:
+    plot_rewards(
+        training_rewards=dqn_agent.training_rewards,
+        mean_training_rewards=dqn_agent.mean_training_rewards,
+        reward_threshold=environment.spec.reward_threshold,
+        save_file_name=f'{saves_path}/dqn_rewards.png'
+    )
+    plot_losses(training_losses=dqn_agent.training_losses, save_file_name=f'{saves_path}/dqn_losses.png')
+
+    # Saving:
+    torch.save(obj=dqn_agent.dnnetwork.state_dict(), f=f'{saves_path}/dqn_Trained_Model.pth')
+
+    # Evaluation:
+    tr, _ = play_games_using_agent(environment, dqn_agent, 100)
+    plot_evaluation_rewards(
+        rewards=tr,
+        reward_threshold=environment.spec.reward_threshold,
+        save_file_name=f'{saves_path}/dqn_evaluation.png'
+    )
+    save_agent_gif(env=environment, ag=dqn_agent, save_file_name=f'{saves_path}/agente_dqn.gif')
