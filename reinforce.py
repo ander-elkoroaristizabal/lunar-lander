@@ -194,7 +194,7 @@ if __name__ == '__main__':
     # Hyperparams:
     lr = 0.001  # Velocidad aprendizaje
     MAX_EPISODES = 10000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
-    GAMMA = 0.97
+    GAMMA = 0.99
     BATCH_SIZE = 32
 
     # Agent initialization:
