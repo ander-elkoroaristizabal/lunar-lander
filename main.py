@@ -6,6 +6,8 @@ print("El entorno utiliza: ", DEVICE)
 
 env = gym.make('LunarLander-v2', render_mode='rgb_array')
 
+print('Rango de las recompensas: ' + str(env.reward_range))
+
 print(f"El valor del umbral de recompensa definido en el entorno es {env.spec.reward_threshold}.")
 
 print(f"El número máximo de pasos por episodio es {env.spec.max_episode_steps}.")

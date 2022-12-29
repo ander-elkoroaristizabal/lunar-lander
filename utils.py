@@ -78,7 +78,6 @@ def plot_evaluation_rewards(rewards: np.ndarray, reward_threshold: float, save_f
     plt.axhline(y=reward_threshold, label='Reward Threshold', color='green')
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
-    plt.ylim(ymin=0)
     plt.legend()
     if save_file_name:
         plt.savefig(save_file_name)

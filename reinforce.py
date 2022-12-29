@@ -193,7 +193,7 @@ if __name__ == '__main__':
 
     # Hyperparams:
     lr = 0.001  # Velocidad aprendizaje
-    MAX_EPISODES = 2000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
+    MAX_EPISODES = 10000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     GAMMA = 0.97
     BATCH_SIZE = 32
 
@@ -220,7 +220,7 @@ if __name__ == '__main__':
         save_file_name=f'{saves_path}/reinforce_rewards.png'
     )
     plot_losses(training_losses=reinforce_agent.training_losses, save_file_name=f'{saves_path}/reinforce_losses.png')
-    # reinforce_agent.dnnetwork.load_state_dict(torch.load(f'{saves_path}/reinforce_Trained_Model.pth'))
+    # reinforce_agent.dnnetwork.load_state_dict(torch.load(f'{agent_name}/reinforce_Trained_Model.pth'))
 
     # Saving:
     torch.save(reinforce_agent.dnnetwork.state_dict(), f'{saves_path}/reinforce_Trained_Model.pth')

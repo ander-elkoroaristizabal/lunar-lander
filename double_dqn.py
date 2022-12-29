@@ -6,40 +6,13 @@ import gym
 import numpy as np
 import torch
 
+from dqn import DQN
 from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
 from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
 
 
-class DQN(torch.nn.Module):
-
-    def __init__(self, env, learning_rate=1e-3, device=torch.device('cpu')):
-        super(DQN, self).__init__()
-        self.device = device
-        self.n_inputs = env.observation_space.shape[0]
-        self.n_outputs = env.action_space.n
-        self.actions = np.arange(env.action_space.n)
-        self.learning_rate = learning_rate
-
-        # Construcción de la red neuronal
-        self.model = torch.nn.Sequential(
-            torch.nn.Linear(self.n_inputs, 256, bias=True),
-            torch.nn.ReLU(),
-            torch.nn.Linear(256, 256, bias=True),
-            torch.nn.ReLU(),
-            torch.nn.Linear(256, self.n_outputs, bias=True))
-        self.model.to(self.device)
-
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
-    def get_qvals(self, state):
-        if type(state) is tuple:
-            state = np.array([np.ravel(s) for s in state])
-        state_t = torch.FloatTensor(state).to(device=self.device)
-        return self.model(state_t)
-
-
-class DQNAgent:
+class DoubleDQNAgent:
 
     def __init__(self, env, dnnetwork, buffer, epsilon=0.1, eps_decay=0.99, batch_size=32):
 
@@ -152,23 +125,26 @@ class DQNAgent:
                     # Actualizamos epsilon según la velocidad de decaimiento fijada
                     self.epsilon = max(self.epsilon * self.eps_decay, 0.01)
 
-    # Cálculo de la pérdida
     def calculate_loss(self, batch):
         # Separamos las variables de la experiencia y las convertimos a tensores
         states, actions, rewards, dones, next_states = [i for i in batch]
-        rewards_vals = torch.FloatTensor(rewards).to(device=self.dnnetwork.device)
-        actions_vals = torch.LongTensor(np.array(actions)).reshape(-1, 1).to(
-            device=self.dnnetwork.device)
-        dones_t = torch.BoolTensor(dones).to(device=self.dnnetwork.device)
+        rewards_vals = torch.FloatTensor(rewards).to(device=self.dnnetwork.device).reshape(-1, 1)
+        actions_vals = torch.LongTensor(np.array(actions)).to(
+            device=self.dnnetwork.device).reshape(-1, 1)
+        dones_t = torch.BoolTensor(dones).to(device=self.dnnetwork.device).reshape(-1, 1)
 
         # Obtenemos los valores de Q de la red principal
         qvals = torch.gather(self.dnnetwork.get_qvals(states), 1, actions_vals)
-        # Obtenemos los valores de Q objetivo. El parámetro detach() evita que estos valores actualicen la red objetivo
-        qvals_next = torch.max(self.target_network.get_qvals(next_states),
-                               dim=-1)[0].detach()
+        next_actions = torch.max(self.dnnetwork.get_qvals(next_states), dim=-1)[1]
+        next_actions_vals = next_actions.reshape(-1, 1)
+        # Obtenemos los valores de Q de la red objetivo
+        target_qvals = self.target_network.get_qvals(next_states)
+        qvals_next = torch.gather(target_qvals, 1, next_actions_vals).detach()
+        #####
+
         qvals_next.masked_fill_(dones_t, 0)  # 0 en estados terminales
 
-        # Calculamos la ecuación de Bellman
+        # Calculamos ecuación de Bellman
         expected_qvals = self.gamma * qvals_next + rewards_vals
 
         # Calculamos la pérdida
@@ -200,7 +176,7 @@ if __name__ == '__main__':
     # Inicialización:
     environment = gym.make('LunarLander-v2', render_mode='rgb_array')
     DEVICE = torch.device('mps')
-    agent_name = "dqn"
+    agent_name = "double_dqn"
     try:
         os.mkdir(agent_name)
     except FileExistsError:
@@ -216,7 +192,7 @@ if __name__ == '__main__':
     environment.action_space.seed(RANDOM_SEED)
 
     # Hyperparams:
-    LR = 0.001  # Velocidad de aprendizaje
+    lr = 0.001  # Velocidad de aprendizaje
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     EPSILON = 1  # Valor inicial de epsilon
@@ -229,10 +205,10 @@ if __name__ == '__main__':
 
     # Agent initialization:
     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
-    dqn = DQN(env=environment, learning_rate=LR, device=DEVICE)
-    dqn_agent = DQNAgent(
+    double_dqn = DQN(env=environment, learning_rate=lr, device=DEVICE)
+    double_dqn_agent = DoubleDQNAgent(
         env=environment,
-        dnnetwork=dqn,
+        dnnetwork=double_dqn,
         buffer=er_buffer,
         epsilon=EPSILON,
         eps_decay=EPSILON_DECAY,
@@ -240,7 +216,7 @@ if __name__ == '__main__':
     )
 
     # Agent training:
-    training_time = dqn_agent.train(
+    training_time = double_dqn_agent.train(
         gamma=GAMMA,
         max_episodes=MAX_EPISODES,
         dnn_update_frequency=DNN_UPD,
@@ -251,21 +227,23 @@ if __name__ == '__main__':
     # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
     # Training evaluation:
     plot_rewards(
-        training_rewards=dqn_agent.training_rewards,
-        mean_training_rewards=dqn_agent.mean_training_rewards,
+        training_rewards=double_dqn_agent.training_rewards,
+        mean_training_rewards=double_dqn_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
         save_file_name=f'{agent_name}/{agent_name}_rewards.png'
     )
-    plot_losses(training_losses=dqn_agent.training_losses, save_file_name=f'{agent_name}/{agent_name}_losses.png')
+    plot_losses(training_losses=double_dqn_agent.training_losses,
+                save_file_name=f'{agent_name}/{agent_name}_losses.png')
 
     # Saving:
-    torch.save(obj=dqn_agent.dnnetwork.state_dict(), f=f'{agent_name}/{agent_name}_Trained_Model.pth')
+    torch.save(obj=double_dqn_agent.dnnetwork.state_dict(),
+               f=f'{agent_name}/{agent_name}_Trained_Model.pth')
 
     # Evaluation:
-    tr, _ = play_games_using_agent(environment, dqn_agent, 100)
+    tr, _ = play_games_using_agent(environment, double_dqn_agent, 100)
     plot_evaluation_rewards(
         rewards=tr,
         reward_threshold=environment.spec.reward_threshold,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
-    save_agent_gif(env=environment, ag=dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')
+    save_agent_gif(env=environment, ag=double_dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')
