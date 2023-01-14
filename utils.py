@@ -5,8 +5,31 @@ import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
 
+ACTIONS_DICT = {
+    0: 'None',
+    1: 'Left engine',
+    2: 'Main engine',
+    3: 'Right engine'
+}
 
-def _label_with_text(frame, action, reward):
+
+def render_random_agent_episode(env: gym.Env):
+    if env.render_mode != 'human':
+        raise ValueError('Env render_mode needs to be "human".')
+    env.reset()
+    total_reward = 0
+    for timestep in range(env.spec.max_episode_steps):
+        env.render()
+        action = env.action_space.sample()
+        _, reward, done, _, _ = env.step(action)
+        total_reward += reward
+        if done:
+            print(f"Episode finished after {timestep + 1} time steps "
+                  f"with reward {round(total_reward)}.")
+            break
+
+
+def _label_with_text(frame, state, action: str, reward: float, total_reward: float = None):
     """
 
     Args:
@@ -20,26 +43,43 @@ def _label_with_text(frame, action, reward):
     im = Image.fromarray(frame)
     im = im.resize((im.size[0] * 2, im.size[1] * 2))
     drawer = ImageDraw.Draw(im)
-    drawer.text((1, 1),
-                f"Uoc Aprendizaje Por Refuerzo. Action={action} and Reward={reward}",
-                fill=(255, 255, 255, 128))
+    total_reward_text = f"Total Reward = {total_reward}" if total_reward else ""
+    drawer.text(xy=(1, im.size[1] - im.size[1] / 10),
+                text="Uoc Aprendizaje Por Refuerzo.\n"
+                     f"State = {state}\n"
+                     f"Action = {action}\n"
+                     f"Reward = {reward}\n" +
+                     total_reward_text,
+                fill=(0, 0, 0, 128))
     return im
 
 
 # Método que permite crear un gif con la evolución de una partida dado un entorno GYM.
 def save_random_agent_gif(env):
     frames = []
-    done = False
     env.reset()
+    tr = 0
     ###########################################
     # Jugar una partida aleatoria:
-    while not done:
+    max_steps = env.spec.max_episode_steps
+    for timestep in range(max_steps):
         action = env.action_space.sample()
-        frame = env.render(mode='rgb_array')
-        state, reward, done, _ = env.step(action)
-        frames.append(_label_with_text(frame=frame, action=action, reward=int(reward)))
+        frame = env.render()
+        obs, reward, done, _, _ = env.step(action)
+        tr += reward
+        total_reward = round(tr, 2) if (done or (timestep == max_steps - 1)) else None
+        frames.append(
+            _label_with_text(
+                frame=frame,
+                state=list(obs),
+                action=ACTIONS_DICT[action],
+                reward=round(reward, 2),
+                total_reward=total_reward
+            )
+        )
+        if done:
+            break
     ##############################################
-
     env.close()
     imageio.mimwrite('random_agent.gif', frames, fps=60)
 
@@ -94,16 +134,24 @@ def save_agent_gif(env: gym.Env, ag, save_file_name: str):
     """
     frames = []
     env.reset()
-    observation, _ = env.reset()
-    total_reward = 0
-    t = 0
-    while True:
+    obs, _ = env.reset()
+    tr = 0
+    max_steps = env.spec.max_episode_steps
+    for timestep in range(max_steps):
+        action = ag.get_action(state=obs)
         frame = env.render()
-        action = ag.get_action(state=observation)
-        observation, reward, done, _, _ = env.step(action)
-        frames.append(_label_with_text(frame=frame, action=action, reward=reward))
-        total_reward += reward
-        t = t + 1
+        obs, reward, done, _, _ = env.step(action)
+        tr += reward
+        total_reward = round(tr, 2) if (done or (timestep == max_steps - 1)) else None
+        frames.append(
+            _label_with_text(
+                frame=frame,
+                state=list(obs),
+                action=ACTIONS_DICT[action],
+                reward=round(reward, 2),
+                total_reward=total_reward
+            )
+        )
         if done:
             break
 
