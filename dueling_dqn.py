@@ -138,10 +138,14 @@ if __name__ == '__main__':
         training_rewards=double_dqn_agent.training_rewards,
         mean_training_rewards=double_dqn_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
+        title=agent_name,
         save_file_name=f'{agent_name}/{agent_name}_rewards.png'
     )
-    plot_losses(training_losses=double_dqn_agent.training_losses,
-                save_file_name=f'{agent_name}/{agent_name}_losses.png')
+    plot_losses(
+        training_losses=double_dqn_agent.training_losses,
+        title=agent_name,
+        save_file_name=f'{agent_name}/{agent_name}_losses.png'
+    )
 
     # Saving:
     torch.save(obj=double_dqn_agent.dnnetwork.state_dict(),
@@ -152,6 +156,7 @@ if __name__ == '__main__':
     plot_evaluation_rewards(
         rewards=tr,
         reward_threshold=environment.spec.reward_threshold,
+        title=agent_name,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
     save_agent_gif(env=environment, ag=double_dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')

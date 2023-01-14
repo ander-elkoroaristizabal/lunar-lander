@@ -84,7 +84,8 @@ def save_random_agent_gif(env):
     imageio.mimwrite('random_agent.gif', frames, fps=60)
 
 
-def plot_rewards(training_rewards, mean_training_rewards, reward_threshold: float, save_file_name: str = None):
+def plot_rewards(training_rewards, mean_training_rewards, reward_threshold: float,
+                 title: str, save_file_name: str = None):
     plt.figure(figsize=(12, 8))
     plt.plot(training_rewards, label='Rewards')
     plt.plot(mean_training_rewards, label='Mean Rewards')
@@ -92,23 +93,26 @@ def plot_rewards(training_rewards, mean_training_rewards, reward_threshold: floa
     plt.xlabel('Episodes')
     plt.ylabel('Rewards')
     plt.legend()
+    plt.title(title)
     if save_file_name:
         plt.savefig(save_file_name)
     plt.show()
 
 
-def plot_losses(training_losses, save_file_name: str = None):
+def plot_losses(training_losses, title: str, save_file_name: str = None):
     plt.figure(figsize=(12, 8))
     plt.plot(training_losses, label='Real Training loss')
     plt.xlabel('Episodes')
     plt.ylabel('Loss')
     plt.legend()
+    plt.title(title)
     if save_file_name:
         plt.savefig(save_file_name)
     plt.show()
 
 
-def plot_evaluation_rewards(rewards: np.ndarray, reward_threshold: float, save_file_name: str = None):
+def plot_evaluation_rewards(rewards: np.ndarray, reward_threshold: float,
+                            title: str, save_file_name: str = None):
     plt.figure(figsize=(12, 8))
     plt.plot(rewards, label='Total episode reward')
     r_mean = rewards.mean()
@@ -119,6 +123,7 @@ def plot_evaluation_rewards(rewards: np.ndarray, reward_threshold: float, save_f
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
     plt.legend()
+    plt.title(title)
     if save_file_name:
         plt.savefig(save_file_name)
     plt.show()

@@ -178,9 +178,9 @@ if __name__ == '__main__':
     # Inicialización:
     environment = gym.make('LunarLander-v2', render_mode='rgb_array')
     DEVICE = torch.device('cpu')
-    saves_path = "reinforce"
+    agent_name = "reinforce"
     try:
-        os.mkdir(saves_path)
+        os.mkdir(agent_name)
     except FileExistsError:
         pass
 
@@ -219,19 +219,25 @@ if __name__ == '__main__':
         training_rewards=reinforce_agent.training_rewards,
         mean_training_rewards=reinforce_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
-        save_file_name=f'{saves_path}/reinforce_rewards.png'
+        title=agent_name,
+        save_file_name=f'{agent_name}/reinforce_rewards.png'
     )
-    plot_losses(training_losses=reinforce_agent.training_losses, save_file_name=f'{saves_path}/reinforce_losses.png')
+    plot_losses(
+        training_losses=reinforce_agent.training_losses,
+        title=agent_name,
+        save_file_name=f'{agent_name}/reinforce_losses.png'
+    )
     # reinforce_agent.dnnetwork.load_state_dict(torch.load(f'{agent_name}/reinforce_Trained_Model.pth'))
 
     # Saving:
-    torch.save(reinforce_agent.dnnetwork.state_dict(), f'{saves_path}/reinforce_Trained_Model.pth')
+    torch.save(reinforce_agent.dnnetwork.state_dict(), f'{agent_name}/reinforce_Trained_Model.pth')
 
     # Evaluation:
     tr, _ = play_games_using_agent(environment, reinforce_agent, 100)
     plot_evaluation_rewards(
         rewards=tr,
-        save_file_name=f'{saves_path}/reinforce_evaluation.png',
+        save_file_name=f'{agent_name}/reinforce_evaluation.png',
+        title=agent_name,
         reward_threshold=environment.spec.reward_threshold
     )
-    save_agent_gif(environment, reinforce_agent, f'{saves_path}/agente_reinforce.gif')
+    save_agent_gif(environment, reinforce_agent, f'{agent_name}/agente_reinforce.gif')
