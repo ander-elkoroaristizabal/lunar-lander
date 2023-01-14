@@ -200,7 +200,8 @@ class DQNAgent:
 if __name__ == '__main__':
     # Inicialización:
     environment = gym.make('LunarLander-v2', render_mode='rgb_array')
-    DEVICE = torch.device('mps')
+    # Utilizamos la cpu porque en este caso es más rápida:
+    DEVICE = torch.device('cpu')
     agent_name = "dqn"
     try:
         os.mkdir(agent_name)

@@ -22,6 +22,8 @@ class PGReinforce(torch.nn.Module):
         self.model = torch.nn.Sequential(
             torch.nn.Linear(self.n_inputs, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
             torch.nn.Linear(256, self.n_outputs),
             torch.nn.Softmax(dim=-1))
         self.model.to(self.device)
@@ -63,7 +65,7 @@ class ReinforceAgent:
         return np.random.choice(self.action_space, p=action_probs.flatten())
 
     # Entrenamiento
-    def train(self, gamma=0.99, max_episodes=2000, batch_size=10, env_seed=666):
+    def train(self, gamma=0.99, max_episodes=2000, batch_size=10):
         start_time = time.time()
         self.gamma = gamma
 
@@ -71,7 +73,7 @@ class ReinforceAgent:
         training = True
         print("Training...")
         while training:
-            state_t, _ = self.env.reset(seed=env_seed + episode)
+            state_t, _ = self.env.reset()
             episode_states = []
             episode_rewards = []
             episode_actions = []
@@ -175,7 +177,7 @@ class ReinforceAgent:
 if __name__ == '__main__':
     # Inicialización:
     environment = gym.make('LunarLander-v2', render_mode='rgb_array')
-    DEVICE = torch.device('mps')
+    DEVICE = torch.device('cpu')
     saves_path = "reinforce"
     try:
         os.mkdir(saves_path)
@@ -189,16 +191,17 @@ if __name__ == '__main__':
     RANDOM_SEED = 66
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
+    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
     # Hyperparams:
-    lr = 0.001  # Velocidad aprendizaje
+    LR = 0.001  # Velocidad aprendizaje
     MAX_EPISODES = 10000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     GAMMA = 0.99
     BATCH_SIZE = 32
 
     # Agent initialization:
-    reinforce_network = PGReinforce(env=environment, learning_rate=lr, device=DEVICE)
+    reinforce_network = PGReinforce(env=environment, learning_rate=LR, device=DEVICE)
     reinforce_agent = ReinforceAgent(
         env=environment,
         dnnetwork=reinforce_network
@@ -207,8 +210,7 @@ if __name__ == '__main__':
     # Agent training:
     training_time = reinforce_agent.train(
         gamma=GAMMA,
-        max_episodes=MAX_EPISODES,
-        env_seed=RANDOM_SEED
+        max_episodes=MAX_EPISODES
     )
     print(f"Training time: {training_time} minutes.")
 

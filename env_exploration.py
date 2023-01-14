@@ -24,7 +24,11 @@ print(f"El máximo de los valores de espacio de observaciones es {list(env.obser
 print(f"Rango de las recompensas: {env.reward_range}")
 
 # Visualizamos el entorno
-n_random_exploration_episodes = 0
+RANDOM_SEED = 66
+env.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
+env.action_space.seed(RANDOM_SEED)
+
+n_random_exploration_episodes = 3
 for episode in range(n_random_exploration_episodes):
     render_random_agent_episode(env)
 # Cerramos la visualización:
@@ -35,14 +39,8 @@ if env.screen:
 
 # Y guardamos una ejecución aleatoria:
 
-actions_dict = {
-    0: 'None',
-    1: 'Left engine',
-    2: 'Main engine',
-    3: 'Right engine'
-}
-
 save_random_agent_gif(
-    env=gym.make('LunarLander-v2', render_mode='rgb_array'),
-    actions_dict=actions_dict
+    env=gym.make('LunarLander-v2', render_mode='rgb_array')
 )
+
+print(env.unwrapped.__doc__)

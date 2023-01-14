@@ -11,7 +11,7 @@ def play_game(environment, policy):
     """
 
     # Inicializamos el entorno:
-    obs_t = environment.reset()
+    obs_t, _ = environment.reset()
     t_step = 0
     total_game_reward = 0
     episode_is_done = False
@@ -21,7 +21,7 @@ def play_game(environment, policy):
         action_t = policy(observation=obs_t)
 
         # Ejecutar la acción y esperar la respuesta del entorno
-        obs_t_plus_one, reward_t_plus_one, episode_is_done, _ = environment.step(action_t)
+        obs_t_plus_one, reward_t_plus_one, episode_is_done, _, _ = environment.step(action_t)
 
         # Actualizar variables
         total_game_reward += reward_t_plus_one

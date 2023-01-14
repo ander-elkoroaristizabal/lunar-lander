@@ -14,7 +14,7 @@ from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent
 
 class DoubleDQNAgent:
 
-    def __init__(self, env, dnnetwork, buffer, epsilon=0.1, eps_decay=0.99, batch_size=32):
+    def __init__(self, env, dnnetwork, buffer, epsilon=0.1, eps_decay=0.99, batch_size=32, min_epsilon=0.01):
 
         self.env = env
         self.dnnetwork = dnnetwork
@@ -22,6 +22,7 @@ class DoubleDQNAgent:
         self.buffer = buffer
         self.epsilon = epsilon
         self.eps_decay = eps_decay
+        self.min_epsilon = min_epsilon
         self.batch_size = batch_size
         self.nblock = 100  # bloque de los X últimos episodios de los que se calculará la media de recompensa
         self.reward_threshold = self.env.spec.reward_threshold  # recompensa media a partir de la cual se considera
@@ -62,14 +63,13 @@ class DoubleDQNAgent:
     def train(self, gamma=0.99,
               max_episodes=50000,
               dnn_update_frequency=4,
-              dnn_sync_frequency=2000,
-              env_seed=666):
+              dnn_sync_frequency=2000):
         start_time = time.time()
 
         self.gamma = gamma
 
         # Rellenamos el buffer con N experiencias aleatorias ()
-        self.state0, _ = self.env.reset(seed=env_seed)
+        self.state0, _ = self.env.reset()
         print("Filling replay buffer...")
         while self.buffer.burn_in_capacity() < 1:
             self.take_step(self.epsilon, mode='explore')
@@ -78,7 +78,7 @@ class DoubleDQNAgent:
         training = True
         print("Training...")
         while training:
-            self.state0, _ = self.env.reset(seed=env_seed + episode + 1)
+            self.state0, _ = self.env.reset()
             self.total_reward = 0
             done_game = False
             while not done_game:
@@ -123,8 +123,9 @@ class DoubleDQNAgent:
                         return round((end_time - start_time) / 60, 2)
 
                     # Actualizamos epsilon según la velocidad de decaimiento fijada
-                    self.epsilon = max(self.epsilon * self.eps_decay, 0.01)
+                    self.epsilon = max(self.epsilon * self.eps_decay, self.min_epsilon)
 
+    # Cálculo de la pérdida
     def calculate_loss(self, batch):
         # Separamos las variables de la experiencia y las convertimos a tensores
         states, actions, rewards, dones, next_states = [i for i in batch]
@@ -144,7 +145,7 @@ class DoubleDQNAgent:
 
         qvals_next.masked_fill_(dones_t, 0)  # 0 en estados terminales
 
-        # Calculamos ecuación de Bellman
+        # Calculamos la ecuación de Bellman
         expected_qvals = self.gamma * qvals_next + rewards_vals
 
         # Calculamos la pérdida
@@ -175,7 +176,7 @@ class DoubleDQNAgent:
 if __name__ == '__main__':
     # Inicialización:
     environment = gym.make('LunarLander-v2', render_mode='rgb_array')
-    DEVICE = torch.device('mps')
+    DEVICE = torch.device('cpu')
     agent_name = "double_dqn"
     try:
         os.mkdir(agent_name)
@@ -189,30 +190,33 @@ if __name__ == '__main__':
     RANDOM_SEED = 66
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
+    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
     # Hyperparams:
-    lr = 0.001  # Velocidad de aprendizaje
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
+    BURN_IN = 100  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
-    EPSILON = 1  # Valor inicial de epsilon
-    EPSILON_DECAY = .97  # Decaimiento de epsilon
+    INIT_EPSILON = 1  # Valor inicial de epsilon
+    EPSILON_DECAY = .98  # Decaimiento de epsilon
+    MIN_EPSILON = 0.01  # Valor mínimo de epsilon en entrenamiento
     GAMMA = 0.99  # Valor gamma de la ecuación de Bellman
     BATCH_SIZE = 32  # Conjunto a coger del buffer para la red neuronal
-    BURN_IN = 100  # Número de episodios iniciales usados para rellenar el buffer antes de entrenar
+    LR = 0.001  # Velocidad de aprendizaje
     DNN_UPD = 1  # Frecuencia de actualización de la red neuronal
     DNN_SYNC = 1000  # Frecuencia de sincronización de pesos entre la red neuronal y la red objetivo
 
     # Agent initialization:
     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
-    double_dqn = DQN(env=environment, learning_rate=lr, device=DEVICE)
+    double_dqn = DQN(env=environment, learning_rate=LR, device=DEVICE)
     double_dqn_agent = DoubleDQNAgent(
         env=environment,
         dnnetwork=double_dqn,
         buffer=er_buffer,
-        epsilon=EPSILON,
+        epsilon=INIT_EPSILON,
         eps_decay=EPSILON_DECAY,
-        batch_size=BATCH_SIZE
+        batch_size=BATCH_SIZE,
+        min_epsilon=MIN_EPSILON
     )
 
     # Agent training:
@@ -220,8 +224,7 @@ if __name__ == '__main__':
         gamma=GAMMA,
         max_episodes=MAX_EPISODES,
         dnn_update_frequency=DNN_UPD,
-        dnn_sync_frequency=DNN_SYNC,
-        env_seed=RANDOM_SEED
+        dnn_sync_frequency=DNN_SYNC
     )
     print(f"Training time: {training_time} minutes.")
     # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
