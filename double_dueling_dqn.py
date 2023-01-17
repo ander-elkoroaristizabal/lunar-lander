@@ -1,4 +1,5 @@
 import os
+import random
 
 import gym
 import numpy as np
@@ -24,7 +25,8 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
-    RANDOM_SEED = 66
+    RANDOM_SEED = 666
+    random.seed(RANDOM_SEED)
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
     environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)

@@ -92,7 +92,7 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
-    RANDOM_SEED = 66
+    RANDOM_SEED = 666
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
     environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     BURN_IN = 100  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     INIT_EPSILON = 1  # Valor inicial de epsilon
-    EPSILON_DECAY = .97  # Decaimiento de epsilon
+    EPSILON_DECAY = .98  # Decaimiento de epsilon
     MIN_EPSILON = 0.01  # Valor mínimo de epsilon en entrenamiento
     GAMMA = 0.99  # Valor gamma de la ecuación de Bellman
     BATCH_SIZE = 32  # Conjunto a coger del buffer para la red neuronal

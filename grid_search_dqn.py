@@ -1,4 +1,5 @@
 import os
+import random
 
 import gym
 import numpy as np
@@ -43,6 +44,7 @@ if __name__ == '__main__':
                 for DNN_SYNC in DNN_SYNCS:
                     # Fijamos las semillas utilizadas, por reproducibilidad:
                     RANDOM_SEED = 666
+                    random.seed(RANDOM_SEED)
                     torch.manual_seed(RANDOM_SEED)
                     np.random.seed(RANDOM_SEED)
                     environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)

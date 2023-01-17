@@ -1,4 +1,5 @@
 import os
+import random
 import time
 from copy import deepcopy
 
@@ -49,10 +50,11 @@ class DoubleDQNAgent:
             self.step_count += 1
 
         # Realizamos la acción y obtenemos el nuevo estado y la recompensa
-        new_state, reward, done, _, _ = self.env.step(action)
+        new_state, reward, terminated, truncated, _ = self.env.step(action)
+        done = terminated or truncated
 
         self.total_reward += reward
-        self.buffer.append(self.state0, action, reward, done, new_state)  # guardamos experiencia en el buffer
+        self.buffer.append(self.state0, action, reward, terminated, new_state)  # guardamos experiencia en el buffer
         self.state0 = new_state.copy()
 
         if done:
@@ -187,7 +189,8 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
-    RANDOM_SEED = 66
+    RANDOM_SEED = 666
+    random.seed(RANDOM_SEED)
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
     environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)

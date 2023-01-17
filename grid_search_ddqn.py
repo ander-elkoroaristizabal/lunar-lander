@@ -1,4 +1,5 @@
 import os
+import random
 
 import gym
 import numpy as np
@@ -17,6 +18,7 @@ if __name__ == '__main__':
     # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
     agent_name = "gs_ddqn"
+
     gs_results_file = f"{agent_name}/experiments.csv"
     try:
         os.mkdir(agent_name)
@@ -44,6 +46,7 @@ if __name__ == '__main__':
                 for DNN_SYNC in DNN_SYNCS:
                     # Fijamos las semillas utilizadas, por reproducibilidad:
                     RANDOM_SEED = 666
+                    random.seed(RANDOM_SEED)
                     torch.manual_seed(RANDOM_SEED)
                     np.random.seed(RANDOM_SEED)
                     environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
@@ -55,7 +58,7 @@ if __name__ == '__main__':
                     # Agent initialization:
                     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
                     dqn = DQN(env=environment, learning_rate=LR, device=DEVICE)
-                    dqn_agent = DoubleDQNAgent(
+                    double_dqn_agent = DoubleDQNAgent(
                         env=environment,
                         dnnetwork=dqn,
                         buffer=er_buffer,
@@ -66,30 +69,29 @@ if __name__ == '__main__':
                     )
 
                     # Agent training:
-                    training_time = dqn_agent.train(
+                    training_time = double_dqn_agent.train(
                         gamma=GAMMA,
                         max_episodes=MAX_EPISODES,
                         dnn_update_frequency=DNN_UPD,
                         dnn_sync_frequency=DNN_SYNC
                     )
                     print(f"Training time: {training_time} minutes.")
-                    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
                     # Training evaluation:
                     plot_rewards(
-                        training_rewards=dqn_agent.training_rewards,
-                        mean_training_rewards=dqn_agent.mean_training_rewards,
+                        training_rewards=double_dqn_agent.training_rewards,
+                        mean_training_rewards=double_dqn_agent.mean_training_rewards,
                         reward_threshold=environment.spec.reward_threshold,
                         title=parameters,
                         save_file_name=f'{agent_name}/{parameters}_rewards.png'
                     )
                     plot_losses(
-                        training_losses=dqn_agent.training_losses,
+                        training_losses=double_dqn_agent.training_losses,
                         title=parameters,
                         save_file_name=f'{agent_name}/{parameters}_losses.png'
                     )
 
                     # Evaluation:
-                    tr, _ = play_games_using_agent(environment, dqn_agent, 100)
+                    tr, _ = play_games_using_agent(environment, double_dqn_agent, 100)
                     plot_evaluation_rewards(
                         rewards=tr,
                         reward_threshold=environment.spec.reward_threshold,
@@ -98,8 +100,8 @@ if __name__ == '__main__':
                     )
                     # Store metrics:
                     run_results = {
-                        'solved': dqn_agent.mean_training_rewards[-1] >= environment.spec.reward_threshold,
-                        'train episodes': len(dqn_agent.mean_training_rewards),
+                        'solved': double_dqn_agent.mean_training_rewards[-1] >= environment.spec.reward_threshold,
+                        'train episodes': len(double_dqn_agent.mean_training_rewards),
                         "training time": training_time,
                         'mean evaluation rewards': round(tr.mean(), 2),
                         'median evaluation rewards': round(np.median(tr), 2),

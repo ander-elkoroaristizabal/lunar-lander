@@ -24,7 +24,7 @@ print(f"El máximo de los valores de espacio de observaciones es {list(env.obser
 print(f"Rango de las recompensas: {env.reward_range}")
 
 # Visualizamos el entorno
-RANDOM_SEED = 66
+RANDOM_SEED = 666
 env.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
 env.action_space.seed(RANDOM_SEED)
 

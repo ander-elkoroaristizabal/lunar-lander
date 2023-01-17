@@ -21,7 +21,8 @@ def render_random_agent_episode(env: gym.Env):
     for timestep in range(env.spec.max_episode_steps):
         env.render()
         action = env.action_space.sample()
-        _, reward, done, _, _ = env.step(action)
+        _, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
         total_reward += reward
         if done:
             print(f"Episode finished after {timestep + 1} time steps "
@@ -65,9 +66,10 @@ def save_random_agent_gif(env):
     for timestep in range(max_steps):
         action = env.action_space.sample()
         frame = env.render()
-        obs, reward, done, _, _ = env.step(action)
+        obs, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
         tr += reward
-        total_reward = round(tr, 2) if (done or (timestep == max_steps - 1)) else None
+        total_reward = round(tr, 2) if done else None
         frames.append(
             _label_with_text(
                 frame=frame,
@@ -138,16 +140,16 @@ def save_agent_gif(env: gym.Env, ag, save_file_name: str):
         save_file_name: nombre del fichero
     """
     frames = []
-    env.reset()
     obs, _ = env.reset()
     tr = 0
     max_steps = env.spec.max_episode_steps
     for timestep in range(max_steps):
         action = ag.get_action(state=obs)
         frame = env.render()
-        obs, reward, done, _, _ = env.step(action)
+        obs, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
         tr += reward
-        total_reward = round(tr, 2) if (done or (timestep == max_steps - 1)) else None
+        total_reward = round(tr, 2) if done else None
         frames.append(
             _label_with_text(
                 frame=frame,
@@ -162,3 +164,23 @@ def save_agent_gif(env: gym.Env, ag, save_file_name: str):
 
     env.close()
     imageio.mimwrite(save_file_name, frames, fps=60)
+
+
+def render_agent_episode(env: gym.Env, ag):
+    if env.render_mode != 'human':
+        raise ValueError('Env render_mode needs to be "human".')
+    obs, _ = env.reset()
+    tr = 0
+    max_steps = env.spec.max_episode_steps
+    for timestep in range(max_steps):
+        action = ag.get_action(state=obs)
+        env.render()
+        obs, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
+        tr += reward
+        total_reward = round(tr, 2) if done else None
+        if done:
+            break
+    print(f"Episode finished after {timestep + 1} time steps "
+          f"with reward {round(total_reward)}.")
+    env.close()

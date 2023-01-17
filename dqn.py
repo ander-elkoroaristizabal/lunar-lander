@@ -1,4 +1,5 @@
 import os
+import random
 import time
 from copy import deepcopy
 
@@ -8,7 +9,7 @@ import torch
 
 from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
-from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
+from utils import plot_evaluation_rewards, save_agent_gif, render_agent_episode, plot_rewards, plot_losses
 
 
 class DQN(torch.nn.Module):
@@ -76,10 +77,11 @@ class DQNAgent:
             self.step_count += 1
 
         # Realizamos la acción y obtenemos el nuevo estado y la recompensa
-        new_state, reward, done, _, _ = self.env.step(action)
+        new_state, reward, terminated, truncated, _ = self.env.step(action)
+        done = terminated or truncated
 
         self.total_reward += reward
-        self.buffer.append(self.state0, action, reward, done, new_state)  # guardamos experiencia en el buffer
+        self.buffer.append(self.state0, action, reward, terminated, new_state)  # guardamos experiencia en el buffer
         self.state0 = new_state.copy()
 
         if done:
@@ -120,10 +122,6 @@ class DQNAgent:
                     self.target_network.load_state_dict(
                         self.dnnetwork.state_dict())
                     self.sync_eps.append(episode)
-
-                # Esto debería hacerlo el entorno, pero no parece estar implementado:
-                if self.env._elapsed_steps >= self.env.spec.max_episode_steps:
-                    done_game = True
 
                 if done_game:
                     episode += 1
@@ -212,7 +210,8 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
-    RANDOM_SEED = 66
+    RANDOM_SEED = 666
+    random.seed(RANDOM_SEED)
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
     environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
@@ -252,7 +251,7 @@ if __name__ == '__main__':
         dnn_sync_frequency=DNN_SYNC
     )
     print(f"Training time: {training_time} minutes.")
-    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
+    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'{agent_name}/{agent_name}_Trained_Model.pth'))
     # Training evaluation:
     plot_rewards(
         training_rewards=dqn_agent.training_rewards,
@@ -278,4 +277,13 @@ if __name__ == '__main__':
         title=agent_name,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
+    print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
+    print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
+    print(f'crashed_eval_episodes: {sum(tr < 100)}')
     save_agent_gif(env=environment, ag=dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')
+    rs = 29  # 12, 16, 20, 25, 29
+    human_env = gym.make('LunarLander-v2', render_mode='human')
+    human_env.np_random, _ = gym.utils.seeding.np_random(rs)
+    human_env.action_space.seed(rs)
+    np.random.seed(rs)
+    render_agent_episode(human_env, dqn_agent)
