@@ -1,3 +1,5 @@
+from typing import Dict
+
 import PIL.ImageDraw as ImageDraw
 import gym
 import imageio
@@ -131,20 +133,30 @@ def plot_evaluation_rewards(rewards: np.ndarray, reward_threshold: float,
     plt.show()
 
 
-def save_agent_gif(env: gym.Env, ag, save_file_name: str):
+def save_agent_gif(env_dict: Dict, ag, save_file_name: str, eps=0.01, game_seed: int = None):
     """
 
     Args:
-        env: entorno GYM
+        env_dict: diccionario que define un env gym
         ag: agente entrenado
         save_file_name: nombre del fichero
+        game_seed: semilla de la partida
     """
+
+    env = gym.make(**env_dict)
+
+    if game_seed:
+        obs, _ = env.reset(seed=game_seed)
+        env.action_space.seed(game_seed)
+        np.random.seed(game_seed)
+    else:
+        obs, _ = env.reset()
+
     frames = []
-    obs, _ = env.reset()
     tr = 0
     max_steps = env.spec.max_episode_steps
     for timestep in range(max_steps):
-        action = ag.get_action(state=obs)
+        action = ag.get_action(state=obs, epsilon=eps)
         frame = env.render()
         obs, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
@@ -164,16 +176,26 @@ def save_agent_gif(env: gym.Env, ag, save_file_name: str):
 
     env.close()
     imageio.mimwrite(save_file_name, frames, fps=60)
+    return tr
 
 
-def render_agent_episode(env: gym.Env, ag):
-    if env.render_mode != 'human':
+def render_agent_episode(env_dict: Dict, ag, game_seed: int = None, eps: float = 0.01):
+    if env_dict['render_mode'] != 'human':
         raise ValueError('Env render_mode needs to be "human".')
-    obs, _ = env.reset()
+
+    env = gym.make(**env_dict)
+
+    if game_seed:
+        obs, _ = env.reset(seed=game_seed)
+        env.action_space.seed(game_seed)
+        np.random.seed(game_seed)
+    else:
+        obs, _ = env.reset()
+
     tr = 0
     max_steps = env.spec.max_episode_steps
     for timestep in range(max_steps):
-        action = ag.get_action(state=obs)
+        action = ag.get_action(state=obs, epsilon=eps)
         env.render()
         obs, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
