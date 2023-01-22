@@ -1,6 +1,8 @@
 import gym
 from gym.envs.box2d.lunar_lander import demo_heuristic_lander
+from matplotlib import pyplot as plt
 
+from playing import play_games
 from utils import save_random_agent_gif, render_random_agent_episode
 
 env = gym.make('LunarLander-v2', render_mode='human')
@@ -37,15 +39,34 @@ RANDOM_SEED = 666
 # Agente aleatorio vs. heurístico
 n_random_exploration_episodes = 3
 for episode in range(n_random_exploration_episodes):
-    env = gym.make('LunarLander-v2', render_mode='human')
-    env.reset(seed=RANDOM_SEED + episode)
-    render_random_agent_episode(env)
-    env.reset(seed=RANDOM_SEED + episode)
-    demo_heuristic_lander(env, render=True)
+    demo_env = gym.make('LunarLander-v2', render_mode='human')
+    demo_env.reset(seed=RANDOM_SEED + episode)
+    demo_env.action_space.seed(RANDOM_SEED + episode)
+    render_random_agent_episode(demo_env)
+    demo_env.reset(seed=RANDOM_SEED + episode)
+    demo_heuristic_lander(demo_env, render=True)
 # Cerramos la visualización:
-env.close()
+demo_env.close()
 
 # Y guardamos una ejecución aleatoria:
+rgb_env = gym.make('LunarLander-v2', render_mode='rgb_array')
+rgb_env.reset(seed=RANDOM_SEED)
+rgb_env.observation_space.seed(RANDOM_SEED)
 save_random_agent_gif(
-    env=gym.make('LunarLander-v2', render_mode='rgb_array')
+    env=rgb_env
 )
+
+# Y recompensa media y media de pasos de un agente aleatorio:
+tr, ts = play_games(
+    environment=rgb_env,
+    policy=lambda observation: rgb_env.action_space.sample(),
+    n_games=100
+)
+# Histograma de recompensas:
+plt.hist(tr)
+plt.title("Histogram of reward per episode")
+plt.show()
+# Histograma de pasos por episodio:
+plt.hist(ts)
+plt.title("Histogram of steps per episode")
+plt.show()
