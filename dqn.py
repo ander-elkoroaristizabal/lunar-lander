@@ -197,10 +197,12 @@ class DQNAgent:
 
 if __name__ == '__main__':
     # Inicialización:
-    environment = gym.make('LunarLander-v2', render_mode='rgb_array')
+    env_dict = {'id': 'LunarLander-v2', 'render_mode': 'rgb_array'}
+    environment = gym.make(**env_dict)
     # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
     agent_name = "dqn"
+    agent_title = 'Agente DQN'
     try:
         os.mkdir(agent_name)
     except FileExistsError:
@@ -210,19 +212,21 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
+    # + https://gymnasium.farama.org/content/migration-guide/
     RANDOM_SEED = 666
     random.seed(RANDOM_SEED)
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
-    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
+    environment.reset(seed=RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
+    environment.observation_space.seed(RANDOM_SEED)
 
     # Hyperparams: TODO: Aplicar estos cambios a todo!
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
-    BURN_IN = 100  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
+    BURN_IN = 1000  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     INIT_EPSILON = 1  # Valor inicial de epsilon
-    EPSILON_DECAY = .98  # Decaimiento de epsilon
+    EPSILON_DECAY = .985  # Decaimiento de epsilon
     MIN_EPSILON = 0.01  # Valor mínimo de epsilon en entrenamiento
     GAMMA = 0.99  # Valor gamma de la ecuación de Bellman
     BATCH_SIZE = 32  # Conjunto a coger del buffer para la red neuronal
@@ -257,12 +261,12 @@ if __name__ == '__main__':
         training_rewards=dqn_agent.training_rewards,
         mean_training_rewards=dqn_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
-        title=agent_name,
+        title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_rewards.png'
     )
     plot_losses(
         training_losses=dqn_agent.training_losses,
-        title=agent_name,
+        title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_losses.png'
     )
 
@@ -270,20 +274,34 @@ if __name__ == '__main__':
     torch.save(obj=dqn_agent.dnnetwork.state_dict(), f=f'{agent_name}/{agent_name}_Trained_Model.pth')
 
     # Evaluation:
-    tr, _ = play_games_using_agent(environment, dqn_agent, 100)
+    eval_eps = 0
+    eval_games_seed = 0
+    tr, _ = play_games_using_agent(
+        enviroment_dict=env_dict,
+        agent=dqn_agent,
+        n_games=100,
+        games_seed=eval_games_seed,
+        eps=eval_eps
+    )
     plot_evaluation_rewards(
         rewards=tr,
         reward_threshold=environment.spec.reward_threshold,
-        title=agent_name,
+        title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
     print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
     print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
     print(f'crashed_eval_episodes: {sum(tr < 100)}')
-    save_agent_gif(env=environment, ag=dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')
-    rs = 29  # 12, 16, 20, 25, 29
-    human_env = gym.make('LunarLander-v2', render_mode='human')
-    human_env.np_random, _ = gym.utils.seeding.np_random(rs)
-    human_env.action_space.seed(rs)
-    np.random.seed(rs)
-    render_agent_episode(human_env, dqn_agent)
+    # Rendering and saving interesting games:
+    gif_games = sorted(np.where(tr < 200)[0])
+    render_env_dict = {'id': 'LunarLander-v2', 'render_mode': 'human'}
+    for i in gif_games:
+        render_agent_episode(env_dict=render_env_dict, ag=dqn_agent, game_seed=eval_games_seed + int(i), eps=eval_eps)
+
+    # 12, 16, 20, 25, 29 are interesting games
+    save_agent_gif(
+        env_dict=env_dict,
+        ag=dqn_agent,
+        save_file_name=f'{agent_name}/agente_{agent_name}.gif',
+        eps=eval_eps
+    )
