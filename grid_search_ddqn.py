@@ -1,3 +1,4 @@
+import json
 import os
 import random
 
@@ -13,24 +14,18 @@ from replay_buffer import ExperienceReplayBuffer
 from utils import plot_rewards, plot_losses, plot_evaluation_rewards
 
 if __name__ == '__main__':
-    # Inicialización:
-    environment = gym.make('LunarLander-v2', render_mode='rgb_array')
     # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
     agent_name = "gs_ddqn"
-
     gs_results_file = f"{agent_name}/experiments.csv"
-    try:
-        os.mkdir(agent_name)
-    except FileExistsError:
-        pass
+    os.mkdir(agent_name)
 
     # Hyperparams:
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
-    BURN_IN = 100  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
+    BURN_IN = 1000  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     INIT_EPSILON = 1  # Valor inicial de epsilon
-    EPSILON_DECAY = .98  # Decaimiento de epsilon
+    EPSILON_DECAY = .992  # Decaimiento de epsilon
     MIN_EPSILON = 0.01  # Valor mínimo de epsilon en entrenamiento
     GAMMA = 0.99  # Valor gamma de la ecuación de Bellman
     BATCH_SIZES = [16, 32, 64]  # Conjunto a coger del buffer para la red neuronal
@@ -38,22 +33,42 @@ if __name__ == '__main__':
     DNN_UPDS = [1, 3]  # Frecuencia de actualización de la red neuronal
     DNN_SYNCS = [1000, 2000]  # Frecuencia de sincronización de pesos entre la red neuronal y la red objetivo
 
+    all_params = {
+        "MEMORY_SIZE": MEMORY_SIZE,
+        "BURN_IN": BURN_IN,
+        "MAX_EPISODES": MAX_EPISODES,
+        "INIT_EPSILON": INIT_EPSILON,
+        "EPSILON_DECAY": EPSILON_DECAY,
+        "MIN_EPSILON": MIN_EPSILON,
+        "GAMMA": GAMMA,
+        "BATCH_SIZES": BATCH_SIZES,
+        "LRS": LRS,
+        "DNN_UPDS": DNN_UPDS,
+        "DNN_SYNCS": DNN_SYNCS
+    }
+    with open(f"{agent_name}/grid.json", "w") as file:
+        json.dump(obj=all_params, fp=file)
+
     # Grid search:
     gs_results = []
     for BATCH_SIZE in BATCH_SIZES:
         for LR in LRS:
             for DNN_UPD in DNN_UPDS:
                 for DNN_SYNC in DNN_SYNCS:
+                    # Inicialización:
+                    env_dict = {'id': 'LunarLander-v2', 'render_mode': 'rgb_array'}
+                    environment = gym.make(**env_dict)
+
                     # Fijamos las semillas utilizadas, por reproducibilidad:
                     RANDOM_SEED = 666
                     random.seed(RANDOM_SEED)
                     torch.manual_seed(RANDOM_SEED)
                     np.random.seed(RANDOM_SEED)
-                    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
+                    environment.reset(seed=RANDOM_SEED)
                     environment.action_space.seed(RANDOM_SEED)
                     # Parameters:
                     parameters = (f"BATCH_SIZE={BATCH_SIZE}, LR={LR}, "
-                                  f"DNN_UPD={DNN_UPD}, DNN_SYNC={DNN_SYNC}.")
+                                  f"DNN_UPD={DNN_UPD}, DNN_SYNC={DNN_SYNC}")
                     print(f"Running experiment with {parameters}.")
                     # Agent initialization:
                     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
@@ -91,7 +106,15 @@ if __name__ == '__main__':
                     )
 
                     # Evaluation:
-                    tr, _ = play_games_using_agent(environment, double_dqn_agent, 100)
+                    eval_eps = 0
+                    eval_games_seed = 0
+                    tr, _ = play_games_using_agent(
+                        enviroment_dict=env_dict,
+                        agent=double_dqn_agent,
+                        n_games=100,
+                        eps=eval_eps,
+                        games_seed=eval_games_seed
+                    )
                     plot_evaluation_rewards(
                         rewards=tr,
                         reward_threshold=environment.spec.reward_threshold,

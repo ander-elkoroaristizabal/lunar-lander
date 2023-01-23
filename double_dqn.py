@@ -10,7 +10,7 @@ import torch
 from dqn import DQN
 from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
-from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
+from utils import render_agent_episode, plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
 
 
 class DoubleDQNAgent:
@@ -96,9 +96,6 @@ class DoubleDQNAgent:
                         self.dnnetwork.state_dict())
                     self.sync_eps.append(episode)
 
-                if self.env._elapsed_steps >= self.env.spec.max_episode_steps:
-                    done_game = True
-
                 if done_game:
                     episode += 1
                     self.training_rewards.append(self.total_reward)  # guardamos las recompensas obtenidas
@@ -166,7 +163,7 @@ class DoubleDQNAgent:
         else:
             self.update_loss.append(loss.detach().numpy())
 
-    def get_action(self, state, epsilon=0.05):
+    def get_action(self, state, epsilon=0.01):
         if np.random.random() < epsilon:
             action = np.random.choice(self.dnnetwork.actions)  # acción aleatoria
         else:
@@ -177,9 +174,12 @@ class DoubleDQNAgent:
 
 if __name__ == '__main__':
     # Inicialización:
-    environment = gym.make('LunarLander-v2', render_mode='rgb_array')
+    env_dict = {'id': 'LunarLander-v2', 'render_mode': 'rgb_array'}
+    environment = gym.make(**env_dict)
+    # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
     agent_name = "double_dqn"
+    agent_title = 'Agente Double DQN'
     try:
         os.mkdir(agent_name)
     except FileExistsError:
@@ -189,16 +189,17 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
+    # + https://gymnasium.farama.org/content/migration-guide/
     RANDOM_SEED = 666
     random.seed(RANDOM_SEED)
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
-    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
+    environment.reset(seed=RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
     # Hyperparams:
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
-    BURN_IN = 100  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
+    BURN_IN = 1000  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     INIT_EPSILON = 1  # Valor inicial de epsilon
     EPSILON_DECAY = .98  # Decaimiento de epsilon
@@ -206,7 +207,7 @@ if __name__ == '__main__':
     GAMMA = 0.99  # Valor gamma de la ecuación de Bellman
     BATCH_SIZE = 32  # Conjunto a coger del buffer para la red neuronal
     LR = 0.001  # Velocidad de aprendizaje
-    DNN_UPD = 1  # Frecuencia de actualización de la red neuronal
+    DNN_UPD = 3  # Frecuencia de actualización de la red neuronal
     DNN_SYNC = 1000  # Frecuencia de sincronización de pesos entre la red neuronal y la red objetivo
 
     # Agent initialization:
@@ -230,18 +231,18 @@ if __name__ == '__main__':
         dnn_sync_frequency=DNN_SYNC
     )
     print(f"Training time: {training_time} minutes.")
-    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
+    # double_dqn_agent.dnnetwork.load_state_dict(torch.load(f'{agent_name}/{agent_name}_Trained_Model.pth'))
     # Training evaluation:
     plot_rewards(
         training_rewards=double_dqn_agent.training_rewards,
         mean_training_rewards=double_dqn_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
-        title=agent_name,
+        title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_rewards.png'
     )
     plot_losses(
         training_losses=double_dqn_agent.training_losses,
-        title=agent_name,
+        title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_losses.png'
     )
 
@@ -250,11 +251,38 @@ if __name__ == '__main__':
                f=f'{agent_name}/{agent_name}_Trained_Model.pth')
 
     # Evaluation:
-    tr, _ = play_games_using_agent(environment, double_dqn_agent, 100)
+    eval_eps = 0
+    eval_games_seed = 0
+    tr, _ = play_games_using_agent(
+        enviroment_dict=env_dict,
+        agent=double_dqn_agent,
+        n_games=100,
+        games_seed=eval_games_seed,
+        eps=eval_eps
+    )
     plot_evaluation_rewards(
         rewards=tr,
         reward_threshold=environment.spec.reward_threshold,
-        title=agent_name,
+        title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
-    save_agent_gif(env=environment, ag=double_dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')
+    print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
+    print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
+    print(f'crashed_eval_episodes: {sum(tr < 100)}')
+    # Rendering interesting games:
+    gif_games = sorted(np.where(tr < 200)[0])
+    render_env_dict = {'id': 'LunarLander-v2', 'render_mode': 'human'}
+    for i in gif_games:
+        render_agent_episode(
+            env_dict=render_env_dict,
+            ag=double_dqn_agent,
+            game_seed=eval_games_seed + int(i),
+            eps=eval_eps
+        )
+    # Saving random game:
+    save_agent_gif(
+        env_dict=env_dict,
+        ag=double_dqn_agent,
+        save_file_name=f'{agent_name}/agente_{agent_name}.gif',
+        eps=eval_eps
+    )

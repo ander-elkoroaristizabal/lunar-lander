@@ -17,10 +17,7 @@ if __name__ == '__main__':
     DEVICE = torch.device('cpu')
     agent_name = "gs_dqn"
     gs_results_file = f"{agent_name}/experiments.csv"
-    try:
-        os.mkdir(agent_name)
-    except FileExistsError:
-        pass
+    os.mkdir(agent_name)
 
     # Hyperparams:
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
@@ -67,7 +64,6 @@ if __name__ == '__main__':
                     np.random.seed(RANDOM_SEED)
                     environment.reset(seed=RANDOM_SEED)
                     environment.action_space.seed(RANDOM_SEED)
-                    environment.observation_space.seed(RANDOM_SEED)
 
                     # Parameters:
                     parameters = (f"BATCH_SIZE={BATCH_SIZE}, LR={LR}, "
@@ -94,7 +90,6 @@ if __name__ == '__main__':
                         dnn_sync_frequency=DNN_SYNC
                     )
                     print(f"Training time: {training_time} minutes.")
-                    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
                     # Training evaluation:
                     plot_rewards(
                         training_rewards=dqn_agent.training_rewards,

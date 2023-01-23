@@ -186,7 +186,7 @@ class DQNAgent:
         else:
             self.update_loss.append(loss.detach().numpy())
 
-    def get_action(self, state, epsilon=0.05):
+    def get_action(self, state, epsilon=0.01):
         if np.random.random() < epsilon:
             action = np.random.choice(self.dnnetwork.actions)  # acción aleatoria
         else:
@@ -219,7 +219,6 @@ if __name__ == '__main__':
     np.random.seed(RANDOM_SEED)
     environment.reset(seed=RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
-    environment.observation_space.seed(RANDOM_SEED)
 
     # Hyperparams: TODO: Aplicar estos cambios a todo!
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
@@ -271,7 +270,8 @@ if __name__ == '__main__':
     )
 
     # Saving:
-    torch.save(obj=dqn_agent.dnnetwork.state_dict(), f=f'{agent_name}/{agent_name}_Trained_Model.pth')
+    torch.save(obj=dqn_agent.dnnetwork.state_dict(),
+               f=f'{agent_name}/{agent_name}_Trained_Model.pth')
 
     # Evaluation:
     eval_eps = 0
@@ -292,13 +292,17 @@ if __name__ == '__main__':
     print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
     print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
     print(f'crashed_eval_episodes: {sum(tr < 100)}')
-    # Rendering and saving interesting games:
+    # Rendering interesting games:
     gif_games = sorted(np.where(tr < 200)[0])
     render_env_dict = {'id': 'LunarLander-v2', 'render_mode': 'human'}
     for i in gif_games:
-        render_agent_episode(env_dict=render_env_dict, ag=dqn_agent, game_seed=eval_games_seed + int(i), eps=eval_eps)
-
-    # 12, 16, 20, 25, 29 are interesting games
+        render_agent_episode(
+            env_dict=render_env_dict,
+            ag=dqn_agent,
+            game_seed=eval_games_seed + int(i),
+            eps=eval_eps
+        )
+    # Saving random game:
     save_agent_gif(
         env_dict=env_dict,
         ag=dqn_agent,
