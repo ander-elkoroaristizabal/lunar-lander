@@ -175,9 +175,12 @@ class ReinforceAgent:
 
 if __name__ == '__main__':
     # Inicialización:
-    environment = gym.make('LunarLander-v2', render_mode='rgb_array')
+    env_dict = {'id': 'LunarLander-v2', 'render_mode': 'rgb_array'}
+    environment = gym.make(**env_dict)
+    # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
     agent_name = "reinforce"
+    agent_title = 'Agente Reinforce'
     try:
         os.mkdir(agent_name)
     except FileExistsError:
@@ -187,11 +190,12 @@ if __name__ == '__main__':
     # Referencias:
     # + https://pytorch.org/docs/stable/notes/randomness.html,
     # + https://harald.co/2019/07/30/reproducibility-issues-using-openai-gym/
+    # + https://gymnasium.farama.org/content/migration-guide/
     RANDOM_SEED = 666
     random.seed(RANDOM_SEED)
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
-    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
+    environment.reset(seed=RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
     # Hyperparams:
@@ -219,25 +223,43 @@ if __name__ == '__main__':
         training_rewards=reinforce_agent.training_rewards,
         mean_training_rewards=reinforce_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
-        title=agent_name,
-        save_file_name=f'{agent_name}/reinforce_rewards.png'
+        title=agent_title,
+        save_file_name=f'{agent_name}/{agent_name}_rewards.png'
     )
     plot_losses(
         training_losses=reinforce_agent.training_losses,
-        title=agent_name,
-        save_file_name=f'{agent_name}/reinforce_losses.png'
+        title=agent_title,
+        save_file_name=f'{agent_name}/{agent_name}_losses.png'
     )
-    # reinforce_agent.dnnetwork.load_state_dict(torch.load(f'{agent_name}/reinforce_Trained_Model.pth'))
 
     # Saving:
-    torch.save(reinforce_agent.dnnetwork.state_dict(), f'{agent_name}/reinforce_Trained_Model.pth')
+    torch.save(obj=reinforce_agent.dnnetwork.state_dict(),
+               f=f'{agent_name}/{agent_name}_Trained_Model.pth')
 
     # Evaluation:
-    tr, _ = play_games_using_agent(environment, reinforce_agent, 100)
+    eval_eps = 0
+    eval_games_seed = 0
+    tr, _ = play_games_using_agent(
+        enviroment_dict=env_dict,
+        agent=reinforce_agent,
+        n_games=100,
+        games_seed=eval_games_seed,
+        eps=eval_eps
+    )
     plot_evaluation_rewards(
         rewards=tr,
-        save_file_name=f'{agent_name}/reinforce_evaluation.png',
-        title=agent_name,
-        reward_threshold=environment.spec.reward_threshold
+        reward_threshold=environment.spec.reward_threshold,
+        title=agent_title,
+        save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
-    save_agent_gif(environment, reinforce_agent, f'{agent_name}/agente_reinforce.gif')
+    print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
+    print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
+    print(f'crashed_eval_episodes: {sum(tr < 100)}')
+    # Bad implementation, no rendering.
+    # Saving random game:
+    save_agent_gif(
+        env_dict=env_dict,
+        ag=reinforce_agent,
+        save_file_name=f'{agent_name}/agente_{agent_name}.gif',
+        eps=eval_eps
+    )

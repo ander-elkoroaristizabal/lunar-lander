@@ -50,8 +50,9 @@ demo_env.close()
 
 # Y guardamos una ejecución aleatoria:
 rgb_env = gym.make('LunarLander-v2', render_mode='rgb_array')
+# 12, 16, 20, 25, 29 are interesting games
 rgb_env.reset(seed=RANDOM_SEED)
-rgb_env.observation_space.seed(RANDOM_SEED)
+rgb_env.observation_space.seed(RANDOM_SEED)  # TODO: Necessary?
 save_random_agent_gif(
     env=rgb_env
 )
