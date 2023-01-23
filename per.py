@@ -19,7 +19,7 @@ import random
 import numpy as np
 
 
-class ReplayBuffer:
+class PrioritizedReplayBuffer:
     """
     ## Buffer for Prioritized Experience Replay
 
