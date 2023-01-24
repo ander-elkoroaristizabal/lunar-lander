@@ -9,10 +9,12 @@ import torch
 
 from dqn import DQN
 from noise import OUNoise
-from per import ReplayBuffer
+from per import PrioritizedReplayBuffer
 from playing import play_games_using_agent
 from utils import plot_evaluation_rewards, save_agent_gif, render_agent_episode, plot_rewards, plot_losses
 
+
+# TODO: Esta noise no es la del paper original
 
 class DoubleNoisyDQNAgent:
 
@@ -220,7 +222,7 @@ if __name__ == '__main__':
     DNN_SYNC = 1000  # Frecuencia de sincronización de pesos entre la red neuronal y la red objetivo
 
     # Agent initialization:
-    er_buffer = ReplayBuffer(capacity=MEMORY_SIZE, alpha=0.6)
+    er_buffer = PrioritizedReplayBuffer(capacity=MEMORY_SIZE, alpha=0.6)
     dqn = DQN(env=environment, learning_rate=LR, device=DEVICE)
     dqn_agent = DoubleNoisyDQNAgent(
         env=environment,

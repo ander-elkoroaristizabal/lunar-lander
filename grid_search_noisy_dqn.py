@@ -13,16 +13,15 @@ from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
 from utils import plot_rewards, plot_losses, plot_evaluation_rewards
 
+# TODO: Esta noise no es la del paper original
+
 if __name__ == '__main__':
     # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
-    agent_name = "gs_ddqn_eps_decay_985"
+    agent_name = "gs_noisy_dqn"
 
     gs_results_file = f"{agent_name}/experiments.csv"
-    try:
-        os.mkdir(agent_name)
-    except FileExistsError:
-        pass
+    os.mkdir(agent_name)
 
     # Hyperparams:
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer

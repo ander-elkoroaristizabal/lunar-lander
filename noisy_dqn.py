@@ -11,10 +11,10 @@ from dqn import DQN
 from noise import OUNoise
 from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
-from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
+from utils import plot_rewards, plot_losses, plot_evaluation_rewards, render_agent_episode
 
 
-# TODO: Apply TimeLimit changes!
+# TODO: Esta noise no es la del paper original
 
 class NoisyDQNAgent:
 
@@ -100,10 +100,6 @@ class NoisyDQNAgent:
                         self.dnnetwork.state_dict())
                     self.sync_eps.append(episode)
 
-                # Esto debería hacerlo el entorno, pero no parece estar implementado:
-                if self.env._elapsed_steps >= self.env.spec.max_episode_steps:
-                    done_game = True
-
                 if done_game:
                     episode += 1
                     self.training_rewards.append(self.total_reward)  # guardamos las recompensas obtenidas
@@ -179,10 +175,12 @@ class NoisyDQNAgent:
 
 if __name__ == '__main__':
     # Inicialización:
-    environment = gym.make('LunarLander-v2', render_mode='rgb_array')
+    env_dict = {'id': 'LunarLander-v2', 'render_mode': 'rgb_array'}
+    environment = gym.make(**env_dict)
     # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
     agent_name = "noisy_dqn"
+    agent_title = 'Agente Noisy DQN'
     try:
         os.mkdir(agent_name)
     except FileExistsError:
@@ -198,15 +196,14 @@ if __name__ == '__main__':
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
     environment.reset(seed=RANDOM_SEED)
-    environment.np_random, _ = gym.utils.seeding.np_random(RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
-    # Hyperparams: TODO: Aplicar estos cambios a todo!
+    # Hyperparams:
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
-    BURN_IN = 100  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
+    BURN_IN = 1000  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
     INIT_EPSILON = 1  # Valor inicial de epsilon
-    EPSILON_DECAY = .98  # Decaimiento de epsilon
+    EPSILON_DECAY = .985  # Decaimiento de epsilon
     MIN_EPSILON = 0.01  # Valor mínimo de epsilon en entrenamiento
     GAMMA = 0.99  # Valor gamma de la ecuación de Bellman
     BATCH_SIZE = 32  # Conjunto a coger del buffer para la red neuronal
@@ -216,10 +213,10 @@ if __name__ == '__main__':
 
     # Agent initialization:
     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
-    dqn = DQN(env=environment, learning_rate=LR, device=DEVICE)
-    dqn_agent = DQNAgent(
+    noisy_dqn = DQN(env=environment, learning_rate=LR, device=DEVICE)
+    noisy_dqn_agent = NoisyDQNAgent(
         env=environment,
-        dnnetwork=dqn,
+        dnnetwork=noisy_dqn,
         buffer=er_buffer,
         epsilon=INIT_EPSILON,
         eps_decay=EPSILON_DECAY,
@@ -228,37 +225,50 @@ if __name__ == '__main__':
     )
 
     # Agent training:
-    training_time = dqn_agent.train(
+    training_time = noisy_dqn_agent.train(
         gamma=GAMMA,
         max_episodes=MAX_EPISODES,
         dnn_update_frequency=DNN_UPD,
         dnn_sync_frequency=DNN_SYNC
     )
     print(f"Training time: {training_time} minutes.")
-    # dqn_agent.dnnetwork.load_state_dict(torch.load(f'dqn_Trained_Model.pth'))
+    # noisy_dqn_agent.dnnetwork.load_state_dict(torch.load(f'{agent_name}/{agent_name}_Trained_Model.pth'))
     # Training evaluation:
     plot_rewards(
-        training_rewards=dqn_agent.training_rewards,
-        mean_training_rewards=dqn_agent.mean_training_rewards,
+        training_rewards=noisy_dqn_agent.training_rewards,
+        mean_training_rewards=noisy_dqn_agent.mean_training_rewards,
         reward_threshold=environment.spec.reward_threshold,
         title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_rewards.png'
     )
     plot_losses(
-        training_losses=dqn_agent.training_losses,
+        training_losses=noisy_dqn_agent.training_losses,
         title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_losses.png'
     )
 
     # Saving:
-    torch.save(obj=dqn_agent.dnnetwork.state_dict(), f=f'{agent_name}/{agent_name}_Trained_Model.pth')
+    torch.save(obj=noisy_dqn_agent.dnnetwork.state_dict(),
+               f=f'{agent_name}/{agent_name}_Trained_Model.pth')
 
     # Evaluation:
-    tr, _ = play_games_using_agent(environment, dqn_agent, 100)
+    eval_eps = 0
+    tr, _ = play_games_using_agent(enviroment_dict=env_dict, agent=noisy_dqn_agent, n_games=100, games_seed=0,
+                                   eps=eval_eps)
     plot_evaluation_rewards(
         rewards=tr,
         reward_threshold=environment.spec.reward_threshold,
         title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
-    save_agent_gif(env=environment, ag=dqn_agent, save_file_name=f'{agent_name}/agente_{agent_name}.gif')
+    print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
+    print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
+    print(f'crashed_eval_episodes: {sum(tr < 100)}')
+    gif_games = sorted(np.where((tr < 200) & (tr >= 100))[0])
+    render_env_dict = {'id': 'LunarLander-v2', 'render_mode': 'human'}
+    for i in gif_games:
+        render_agent_episode(env_dict=render_env_dict, ag=noisy_dqn_agent, game_seed=int(i), eps=eval_eps)
+        # save_agent_gif(env_dict=env_dict, ag=noisy_dqn_agent,
+        #                save_file_name=f'{agent_name}/agente_{agent_name}_{i}.gif',
+        #                game_seed=int(i), eps=eval_eps)
+    # 12, 16, 20, 25, 29 are interesting games

@@ -14,6 +14,8 @@ from replay_buffer import ExperienceReplayBuffer
 from utils import plot_evaluation_rewards, save_agent_gif, render_agent_episode, plot_rewards, plot_losses
 
 
+# TODO: Esta noise no es la del paper original
+
 class DoubleNoisyDQNAgent:
 
     def __init__(self, env, dnnetwork, buffer, epsilon=0.1, eps_decay=0.99, batch_size=32, min_epsilon=0.01):
