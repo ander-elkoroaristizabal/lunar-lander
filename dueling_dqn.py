@@ -5,7 +5,7 @@ import gym
 import numpy as np
 import torch
 
-from dqn import DQNAgent
+from double_dqn import DoubleDQNAgent
 from playing import play_games_using_agent
 from replay_buffer import ExperienceReplayBuffer
 from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent_gif
@@ -59,7 +59,7 @@ class DuelingDQN(torch.nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def forward(self, state):
-        """Build a network that maps state -> action values."""
+        """Calcula los Q-values resultado de aplicar la red a cierto estado."""
         common_x = self.common_net(state)
 
         val = self.value_net(common_x)
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     # Agent initialization:
     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
     dueling_dqn = DuelingDQN(env=environment, learning_rate=LR, device=DEVICE)
-    dueling_dqn_agent = DQNAgent(
+    dueling_dqn_agent = DoubleDQNAgent(
         env=environment,
         dnnetwork=dueling_dqn,
         buffer=er_buffer,
