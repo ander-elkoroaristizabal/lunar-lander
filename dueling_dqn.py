@@ -1,3 +1,8 @@
+"""Script que implementa la clase de red Dueling DQN y permite entrenar y evaluar un agente.
+
+Define la clase DuelingDQN, que contiene la red neuronal de arquitectura Dueling a utilizar por el agente Dueling DQN.
+Al ejecutarse define, entrena y evalúa un agente Dueling DQN en el entorno LunarLander-v2.
+"""
 import os
 import random
 
@@ -12,14 +17,20 @@ from utils import plot_rewards, plot_losses, plot_evaluation_rewards, save_agent
 
 
 class DuelingDQN(torch.nn.Module):
+    """
+    Red neuronal de arquitectura Dueling a utilizar por un agente DDQN.
+    """
 
-    def __init__(self, env: gym.Env, learning_rate: float, device=torch.device('cpu')):
+    def __init__(self, env: gym.Env, learning_rate: float = 1e-3, device: torch.device = torch.device('cpu')):
         """
-        Params
-        ======
-        n_inputs: tamaño del espacio de estados
-        n_outputs: tamaño del espacio de acciones
-        actions: array de acciones posibles
+        Inicializa la clase DuelingDQN utilizando la información del entorno.
+        Inicializa el optimizador Adam usando el 'learning_rate' proporcionado.
+        Mueve la red al dispositivo 'device'.
+
+        Args:
+            env: entorno gym donde se utilizará la red
+            learning_rate: tasa de aprendizaje de la optimización
+            device: dispositivo que se utilizará para entrenar la red
         """
         super(DuelingDQN, self).__init__()
         self.device = device
@@ -56,14 +67,16 @@ class DuelingDQN(torch.nn.Module):
         )
         self.adv_net.to(device=self.device)
 
+        # Inicialización del optimizador:
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def forward(self, state):
-        """Calcula los Q-values resultado de aplicar la red a cierto estado."""
+        """
+        Define como actua la red sobre cada observación 'state' recibida.
+        """
+        # Calculamos las 3 redes:
         common_x = self.common_net(state)
-
         val = self.value_net(common_x)
-
         adv = self.adv_net(common_x)
 
         # Agregamos las dos subredes:
@@ -73,6 +86,7 @@ class DuelingDQN(torch.nn.Module):
         return action
 
     def get_qvals(self, state):
+        """Calcula los Q-valores aproximados por la red para la observación 'state'."""
         if type(state) is tuple:
             state = np.array([np.ravel(s) for s in state])
         state_t = torch.FloatTensor(state).to(device=self.device)
@@ -120,6 +134,7 @@ if __name__ == '__main__':
     # Agent initialization:
     er_buffer = ExperienceReplayBuffer(memory_size=MEMORY_SIZE, burn_in=BURN_IN)
     dueling_dqn = DuelingDQN(env=environment, learning_rate=LR, device=DEVICE)
+    # Utilizamos la implementación del agente Double porque la del agente Dueling es igual.
     dueling_dqn_agent = DoubleDQNAgent(
         env=environment,
         dnnetwork=dueling_dqn,
@@ -161,7 +176,7 @@ if __name__ == '__main__':
     eval_eps = 0
     eval_games_seed = 0
     tr, _ = play_games_using_agent(
-        enviroment_dict=env_dict,
+        environment_dict=env_dict,
         agent=dueling_dqn_agent,
         n_games=100,
         games_seed=eval_games_seed,
@@ -173,10 +188,11 @@ if __name__ == '__main__':
         title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
+    print(f"Rewards std: {tr.std()}")
     print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
     print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
     print(f'crashed_eval_episodes: {sum(tr < 100)}')
-    # Bad implementation, no rendering.
+    # Bad results, no rendering.
     # Saving random game:
     save_agent_gif(
         env_dict=env_dict,

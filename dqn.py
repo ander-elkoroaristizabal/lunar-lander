@@ -1,3 +1,11 @@
+"""Script que implementa las clases de red y agente DQN y permite entrenar y evaluar un agente.
+
+Define la clase DQN, que contiene la red neuronal a utilizar por el agente DQN.
+Define la clase DQNAgent, una implementación de un agente DQN.
+Al ejecutarse define, entrena y evalúa un agente DQN en el entorno LunarLander-v2.
+
+Fuente del código base utilizado: https://github.com/jcasasr/Aprendizaje-por-refuerzo/blob/main/M09
+"""
 import os
 import random
 import time
@@ -13,8 +21,21 @@ from utils import plot_evaluation_rewards, save_agent_gif, render_agent_episode,
 
 
 class DQN(torch.nn.Module):
+    """
+    Red neuronal a utilizar por un agente DQN.
+    """
 
-    def __init__(self, env, learning_rate=1e-3, device=torch.device('cpu')):
+    def __init__(self, env: gym.Env, learning_rate: float = 1e-3, device: torch.device = torch.device('cpu')):
+        """
+        Inicializa la clase DQN utilizando la información del entorno.
+        Inicializa el optimizador Adam usando el 'learning_rate' proporcionado.
+        Mueve la red al dispositivo 'device'.
+
+        Args:
+            env: entorno gym donde se utilizará la red
+            learning_rate: tasa de aprendizaje de la optimización
+            device: dispositivo que se utilizará para entrenar la red
+        """
         super(DQN, self).__init__()
         self.device = device
         self.n_inputs = env.observation_space.shape[0]
@@ -28,12 +49,20 @@ class DQN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256, bias=True),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, self.n_outputs, bias=True))
+            torch.nn.Linear(256, self.n_outputs, bias=True)
+        )
         self.model.to(self.device)
 
+        # Inicialización del optimizador:
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def get_qvals(self, state):
+        """
+        Devuelve los Q-valores aproximados por la red para la observación 'state'.
+
+        Args:
+            state: observación del entorno
+        """
         if type(state) is tuple:
             state = np.array([np.ravel(s) for s in state])
         state_t = torch.FloatTensor(state).to(device=self.device)
@@ -41,11 +70,31 @@ class DQN(torch.nn.Module):
 
 
 class DQNAgent:
+    """
+    Agente DQN.
+    """
 
-    def __init__(self, env, dnnetwork, buffer, epsilon=0.1, eps_decay=0.99, batch_size=32, min_epsilon=0.01):
+    def __init__(self,
+                 env: gym.Env,
+                 dnnetwork, buffer,
+                 epsilon: float = 0.1,
+                 eps_decay: float = 0.99,
+                 min_epsilon: float = 0.01,
+                 batch_size: int = 32):
+        """
+        Inicializa el agente DQN.
 
-        self.env = env
-        self.dnnetwork = dnnetwork
+        Args:
+            env: entorno gym
+            dnnetwork: red neuronal principal a entrenar
+            buffer: buffer de repetición a utilizar
+            epsilon: epsilon inicial
+            eps_decay: decaimiento de epsilon
+            min_epsilon: epsilon mínimo de entrenamiento
+            batch_size: tamaño del batch de entrenamiento
+        """
+        self.env = env  # Entorno
+        self.dnnetwork = dnnetwork  # Red principal
         self.target_network = deepcopy(dnnetwork)  # red objetivo (copia de la principal)
         self.buffer = buffer
         self.epsilon = epsilon
@@ -67,7 +116,14 @@ class DQNAgent:
         self.gamma = None  # Defined on training
 
     # Tomamos una nueva acción
-    def take_step(self, eps, mode='train'):
+    def take_step(self, eps: float, mode: str = 'train'):
+        """
+        Avanza un paso en el episodio.
+
+        Args:
+            eps: epsilon a utilizar por el agente
+            mode: modo de elección de acciones
+        """
         if mode == 'explore':
             # acción aleatoria en el burn-in y en la fase de exploración (epsilon)
             action = self.env.action_space.sample()
@@ -89,20 +145,34 @@ class DQNAgent:
         return done
 
     # Entrenamiento
-    def train(self, gamma=0.99,
-              max_episodes=50000,
-              dnn_update_frequency=4,
-              dnn_sync_frequency=2000):
+    def train(self,
+              gamma: float = 0.99,
+              max_episodes: int = 50000,
+              dnn_update_frequency: int = 4,
+              dnn_sync_frequency: int = 2000):
+        """
+        Entrena al agente.
+
+        Args:
+            gamma: valor de la constante gamma de la ecuación de Bellman
+            max_episodes: número máximo de episodios de entrenamiento
+            dnn_update_frequency: frecuencia de actualización de la red principal
+            dnn_sync_frequency: frecuencia de sincronización de las redes
+
+        Returns:
+            tiempo de entrenamiento (en minutos)
+        """
         start_time = time.time()
 
         self.gamma = gamma
 
-        # Rellenamos el buffer con N experiencias aleatorias ()
+        # Rellenamos el buffer con N experiencias aleatorias:
         self.state0, _ = self.env.reset()
         print("Filling replay buffer...")
         while self.buffer.burn_in_capacity() < 1:
             self.take_step(self.epsilon, mode='explore')
 
+        # Iniciamos el entrenamiento:
         episode = 0
         training = True
         print("Training...")
@@ -123,6 +193,7 @@ class DQNAgent:
                         self.dnnetwork.state_dict())
                     self.sync_eps.append(episode)
 
+                # Si el episodio ha concluido:
                 if done_game:
                     episode += 1
                     self.training_rewards.append(self.total_reward)  # guardamos las recompensas obtenidas
@@ -153,6 +224,9 @@ class DQNAgent:
 
     # Cálculo de la pérdida
     def calculate_loss(self, batch):
+        """
+        Calcula la pérdida correspondiente a un batch de experiencias.
+        """
         # Separamos las variables de la experiencia y las convertimos a tensores
         states, actions, rewards, dones, next_states = [i for i in batch]
         rewards_vals = torch.FloatTensor(rewards).to(device=self.dnnetwork.device)
@@ -175,6 +249,9 @@ class DQNAgent:
         return loss
 
     def update(self):
+        """
+        Actualiza la red principal.
+        """
         self.dnnetwork.optimizer.zero_grad()  # eliminamos cualquier gradiente pasado
         batch = self.buffer.sample_batch(batch_size=self.batch_size)  # seleccionamos un conjunto del buffer
         loss = self.calculate_loss(batch)  # calculamos la pérdida
@@ -187,6 +264,13 @@ class DQNAgent:
             self.update_loss.append(loss.detach().numpy())
 
     def get_action(self, state, epsilon=0.01):
+        """
+        Devuelve la acción a seguir según el agente siguiendo una política eps-greedy en la observación 'state'.
+
+        Args:
+            state: observación del entorno
+            epsilon: epsilon a utilizar por la política epsilon-greedy
+        """
         if np.random.random() < epsilon:
             action = np.random.choice(self.dnnetwork.actions)  # acción aleatoria
         else:
@@ -220,7 +304,7 @@ if __name__ == '__main__':
     environment.reset(seed=RANDOM_SEED)
     environment.action_space.seed(RANDOM_SEED)
 
-    # Hyperparams: TODO: Aplicar estos cambios a todo!
+    # Hyperparams:
     MEMORY_SIZE = 10000  # Máxima capacidad del buffer
     BURN_IN = 1000  # Número de pasos iniciales usados para rellenar el buffer antes de entrenar
     MAX_EPISODES = 1000  # Número máximo de episodios (el agente debe aprender antes de llegar a este valor)
@@ -277,7 +361,7 @@ if __name__ == '__main__':
     eval_eps = 0
     eval_games_seed = 0
     tr, _ = play_games_using_agent(
-        enviroment_dict=env_dict,
+        environment_dict=env_dict,
         agent=dqn_agent,
         n_games=100,
         games_seed=eval_games_seed,
@@ -289,17 +373,19 @@ if __name__ == '__main__':
         title=agent_title,
         save_file_name=f'{agent_name}/{agent_name}_evaluation.png'
     )
+    print(f"Rewards std: {tr.std()}")
     print(f'well_landed_eval_episodes: {sum(tr >= 200)}')
     print(f'landed_eval_episodes: {sum((tr < 200) & (tr >= 100))}')
     print(f'crashed_eval_episodes: {sum(tr < 100)}')
     # Rendering interesting games:
     gif_games = sorted(np.where(tr < 200)[0])
     render_env_dict = {'id': 'LunarLander-v2', 'render_mode': 'human'}
-    for i in gif_games:
+    for episode_n in gif_games + [27, 61, 72, 94]:  # Episodios donde la DDQN no es óptima
+        print(f"Rendering episode number {episode_n}.")
         render_agent_episode(
             env_dict=render_env_dict,
             ag=dqn_agent,
-            game_seed=eval_games_seed + int(i),
+            game_seed=eval_games_seed + int(episode_n),
             eps=eval_eps
         )
     # Saving random game:

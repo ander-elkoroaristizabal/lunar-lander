@@ -1,3 +1,6 @@
+"""
+Script que implementa la búsqueda en rejilla de los hiperparámetros que resultan en el mejor agente DDQN.
+"""
 import json
 import os
 import random
@@ -15,6 +18,7 @@ from utils import plot_rewards, plot_losses, plot_evaluation_rewards
 if __name__ == '__main__':
     # Utilizamos la cpu porque en este caso es más rápida:
     DEVICE = torch.device('cpu')
+    # Definimos donde guardar los resultados:
     agent_name = "gs_dqn"
     gs_results_file = f"{agent_name}/experiments.csv"
     os.mkdir(agent_name)
@@ -32,6 +36,7 @@ if __name__ == '__main__':
     DNN_UPDS = [1, 3]  # Frecuencia de actualización de la red neuronal
     DNN_SYNCS = [1000, 2000]  # Frecuencia de sincronización de pesos entre la red neuronal y la red objetivo
 
+    # Guardamos todos los hiperparámetros por reproducibilidad:
     all_params = {
         "MEMORY_SIZE": MEMORY_SIZE,
         "BURN_IN": BURN_IN,
@@ -108,7 +113,7 @@ if __name__ == '__main__':
                     eval_eps = 0
                     eval_games_seed = 0
                     tr, _ = play_games_using_agent(
-                        enviroment_dict=env_dict,
+                        environment_dict=env_dict,
                         agent=dqn_agent,
                         n_games=100,
                         eps=eval_eps,

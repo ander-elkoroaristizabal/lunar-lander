@@ -1,4 +1,11 @@
+"""
+Módulo que implementa la clase Experience Replay Buffer.
+
+Fuente: https://github.com/jcasasr/Aprendizaje-por-refuerzo/blob/main/M09
+"""
+
 from collections import namedtuple, deque
+
 import numpy as np
 
 

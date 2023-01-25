@@ -1,3 +1,6 @@
+"""
+Script que implementa la exploración del entorno LunarLander-v2.
+"""
 import gym
 from gym.envs.box2d.lunar_lander import demo_heuristic_lander
 from matplotlib import pyplot as plt
@@ -20,12 +23,14 @@ print(f"Rango de las recompensas: {env.reward_range}")
 
 # Acciones:
 print(f"El espacio de acciones contiene {env.action_space.n} posibles acciones.")
+# Información del espacio de acciones en la documentación del entorno:
 """
 There are four discrete actions available: 
 do nothing, fire left orientation engine, fire main engine, fire right orientation engine."""
 
 # Observaciones:
 print(f"Las dimensiones del espacio de observaciones son {env.observation_space.shape}.")
+# Información del espacio de observaciones en la documentación del entorno:
 """
 The state is an 8-dimensional vector: the coordinates of the lander in x & y, its linear velocities in x & y, its angle,
  its angular velocity, and two booleans that represent whether each leg is in contact with the ground or not.
@@ -45,14 +50,15 @@ for episode in range(n_random_exploration_episodes):
     render_random_agent_episode(demo_env)
     demo_env.reset(seed=RANDOM_SEED + episode)
     demo_heuristic_lander(demo_env, render=True)
-# Cerramos la visualización:
-demo_env.close()
+    # Cerramos la visualización:
+    if episode == n_random_exploration_episodes:
+        demo_env.close()
 
 # Y guardamos una ejecución aleatoria:
 rgb_env = gym.make('LunarLander-v2', render_mode='rgb_array')
 # 12, 16, 20, 25, 29 are interesting games
 rgb_env.reset(seed=RANDOM_SEED)
-rgb_env.observation_space.seed(RANDOM_SEED)  # TODO: Necessary?
+rgb_env.action_space.seed(RANDOM_SEED)
 save_random_agent_gif(
     env=rgb_env
 )

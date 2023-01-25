@@ -1,12 +1,25 @@
+"""
+Módulo que implementa las funciones utilizadas para jugar episodios por los scripts principales.
+
+Incluye las funciones para jugar una o varias partidas usando tanto una política determinada
+(que puede ser la aleatoria) como un agente.
+
+Las funciones que emplean agentes entrenados reciben un diccionario que caracteriza el entorno por reproducibilidad,
+mientras que las funciones de agente aleatorio reciben directamente el entorno.
+"""
+from typing import Callable, Tuple
+
 import gym
 import numpy as np
 import tqdm
 
 
-def play_game(environment, policy):
+def play_game(environment: gym.Env, policy: Callable) -> Tuple[float, int]:
     """
     Ejecución de un episodio del entorno
     en el que el agente sigue la política 'policy'.
+
+    La política debe depender del argumento 'observation'.
 
     Devuelve la recompensa del episodio y el número de pasos.
     """
@@ -32,9 +45,11 @@ def play_game(environment, policy):
     return total_game_reward, t_step
 
 
-def play_games(environment, policy, n_games: int):
+def play_games(environment: gym.Env, policy: Callable, n_games: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Juega 'n_games' partidas siguiendo la política 'policy'.
+
+    La política debe depender del argumento 'observation'.
 
     Devuelve el vector de recompensas y el vector de duración de partidas.
     """
@@ -49,7 +64,7 @@ def play_games(environment, policy, n_games: int):
     return game_rewards, game_steps
 
 
-def play_game_using_agent(env_dict: dict, agent, eps: float, game_seed: int = None):
+def play_game_using_agent(env_dict: dict, agent, eps: float, game_seed: int = None) -> Tuple[float, int]:
     """
     Ejecución de un episodio del entorno
     utilizando el agente 'agent'.
@@ -85,7 +100,8 @@ def play_game_using_agent(env_dict: dict, agent, eps: float, game_seed: int = No
     return total_game_reward, t_step
 
 
-def play_games_using_agent(enviroment_dict, agent, n_games: int, eps: float = 0.01, games_seed: int = 0):
+def play_games_using_agent(environment_dict: dict, agent, n_games: int, eps: float = 0.01, games_seed: int = 0) \
+        -> Tuple[np.ndarray, np.ndarray]:
     """
     Juega 'n_games' partidas utilizando el agente 'agent'.
 
@@ -96,7 +112,7 @@ def play_games_using_agent(enviroment_dict, agent, n_games: int, eps: float = 0.
     game_steps = np.zeros(n_games)
     for game_n in tqdm.tqdm(range(n_games), desc="Progress playing games"):
         game_reward, steps = play_game_using_agent(
-            env_dict=enviroment_dict,
+            env_dict=environment_dict,
             agent=agent, eps=eps,
             game_seed=games_seed + game_n
         )
